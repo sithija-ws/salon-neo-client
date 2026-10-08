@@ -48,11 +48,19 @@ export async function POST(req:NextRequest) {
     let msg = "login successfully";
 
     console.log(token);
-
-    return NextResponse.json({
-        success: true,
-        msg : msg,
-        user : user,
-        token : token
+    const response = NextResponse.json({
+        message : "Login successfully",
+        role: user.role
     });
+
+    response.cookies.set({
+        name: "login-token",
+        value: token,
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        maxAge: 60*60*24*7
+    })
+
+    return response;
 }
