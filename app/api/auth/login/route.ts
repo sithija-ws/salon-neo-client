@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import * as jose from "jose";
+import { use } from "react";
 
 export async function POST(req:NextRequest) {
     const body = await req.json();
@@ -34,6 +35,23 @@ export async function POST(req:NextRequest) {
             msg : "Invalid email or password!"
         });
     }
+
+    if(user.status != "ACTIVE"){
+        return NextResponse.json({
+            success: false,
+            msg: "Your account is disabled! please contact Administrator!"
+        });
+    }
+
+    //update last login
+    await prisma.user.update({
+        where : {
+            id : user.id
+        },
+        data : {
+            lastLogin : new Date()
+        }
+    });
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 

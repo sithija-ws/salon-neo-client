@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as jose from "jose";
+import { GetUser } from "@/utils/Authentication";
 
 export async function GET(req:NextRequest) {
     try {
-        const loginToken:any = req.cookies.get("login-token")?.value;
-
-        const secret = await new TextEncoder().encode(process.env.JWT_SECRET);
-
-        const user = await jose.jwtVerify(loginToken,secret);
+        const user = await GetUser(req);
+        if(!user){
+            return NextResponse.json({
+                success: false,
+                msg: "Unauthorized!"
+            });
+        }
 
         return NextResponse.json({
             success: true,
