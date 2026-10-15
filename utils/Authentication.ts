@@ -46,7 +46,7 @@ export async function GetUser(
 
 export async function isPrivilaged(req: NextRequest, privilage: String) {
   try {
-    const user: any = await GetUser(req);
+    const user: RequestUserType | null = await GetUser(req);
     if (!user) {
       return NextResponse.json(
         {
@@ -58,20 +58,15 @@ export async function isPrivilaged(req: NextRequest, privilage: String) {
       );
     }
 
-    const hasPrivilage = await user.privilages.includes(privilage);
+    const hasPrivilage = user.privilages.includes(privilage);
     if (hasPrivilage) {
       return true;
     }
 
     return false;
-  } catch (error) {
-    return NextResponse.json(
-      {
-        msg: "Server error while processing",
-      },
-      {
-        status: 500,
-      },
-    );
+  } catch (error: unknown) {
+    throw new Error("Server error");
+    console.log(error);
+    return null;
   }
 }

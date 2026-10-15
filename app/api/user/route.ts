@@ -1,11 +1,19 @@
 import prisma from "@/lib/prisma";
+import { RequestUserType } from "@/types/requestUser";
 import { GetUser, isPrivilaged } from "@/utils/Authentication";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   try {
     //"user:read",
-    const user: any = await GetUser(req);
+    const user: RequestUserType | null = await GetUser(req);
+    if (!user) {
+      return NextResponse.json(
+        { message: "Unauthorized user!" },
+        { status: 401 },
+      );
+    }
+
     if (!(await isPrivilaged(req, "user:read")) || user.role != "ADMIN") {
       return NextResponse.json({ message: "Unauthorized!" }, { status: 401 });
     }
