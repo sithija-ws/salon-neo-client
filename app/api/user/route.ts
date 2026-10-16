@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import { RequestUserType } from "@/types/requestUser";
 import { GetUser, isPrivilaged } from "@/utils/Authentication";
+import bcrypt from "bcryptjs";
+import chalk from "chalk";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -41,3 +43,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+

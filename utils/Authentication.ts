@@ -26,7 +26,7 @@ export async function GetUser(
       typeof payload.lastName !== "string" ||
       typeof payload.role !== "string" ||
       !Array.isArray(payload.privilages) ||
-      !payload.privilages.every((privilage) => typeof privilage !== "string")
+      !payload.privilages.every((privilage) => typeof privilage === "string")
     ) {
       return null;
     }
