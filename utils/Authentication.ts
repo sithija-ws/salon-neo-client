@@ -21,6 +21,7 @@ export async function GetUser(
     const { payload } = await jose.jwtVerify(loginToken, secret);
 
     if (
+      typeof payload.id !== "string" ||
       typeof payload.email !== "string" ||
       typeof payload.firstName !== "string" ||
       typeof payload.lastName !== "string" ||
@@ -32,6 +33,7 @@ export async function GetUser(
     }
 
     return {
+      id: payload.id,
       email: payload.email,
       firstName: payload.firstName,
       lastName: payload.lastName,

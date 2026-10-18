@@ -138,3 +138,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+export async function PUT(req: NextRequest): Promise<NextResponse> {
+  try {
+    const id = req.nextUrl.searchParams.get("id");
+    const requestUser = await GetUser(req);
+
+    if (!requestUser) {
+      console.log(chalk.red("please login!"));
+      return NextResponse.json({ message: "please login" }, { status: 400 });
+    }
+
+    if (id === requestUser?.id) {
+    } else {
+    }
+
+    return NextResponse.json(
+      { message: "user updated successfull!", user: id, reqUser: requestUser },
+      { status: 201 },
+    );
+  } catch (error: unknown) {
+    console.log(chalk.red("Server error: ", error));
+    return NextResponse.json(
+      { message: "Server error while processing!" },
+      { status: 500 },
+    );
+  }
+}

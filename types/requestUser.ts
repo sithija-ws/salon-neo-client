@@ -1,4 +1,5 @@
 export interface RequestUserType {
+  id: String;
   email: String;
   firstName: String;
   lastName: String;
