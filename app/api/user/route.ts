@@ -20,12 +20,50 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized!" }, { status: 401 });
     }
 
+    const pageNumberInString =
+      req.nextUrl.searchParams.get("pageNumber") || "1";
+    const pageSizeInString = req.nextUrl.searchParams.get("pageSize") || "10";
+
+    const pageNumber = parseInt(pageNumberInString);
+    const pageSize = parseInt(pageSizeInString);
+
+    const userCount = await prisma.user.count();
+    const pageCount = Math.ceil(userCount / pageSize);
+
+    if (pageCount < pageNumber) {
+      return NextResponse.json(
+        { message: "Invalid page number!" },
+        { status: 400 },
+      );
+    }
+
     //retrieve users
-    const users = await prisma.user.findMany();
+    const users = await prisma.user.findMany({
+      skip: (pageNumber - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        createdDate: false,
+        lastLogin: false,
+        status: true,
+        phoneNumber: false,
+        password: false,
+      },
+    });
 
     return NextResponse.json(
       {
         msg: "users retrieved successfully!",
+        pagination: {
+          pageNumber: pageNumber,
+          pageSize: pageSize,
+          userCount: userCount,
+          pageCount: pageCount,
+        },
         users,
       },
       { status: 200 },
@@ -143,13 +181,36 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   try {
     const id = req.nextUrl.searchParams.get("id");
     const requestUser = await GetUser(req);
+    const body = await req.json();
 
     if (!requestUser) {
       console.log(chalk.red("please login!"));
       return NextResponse.json({ message: "please login" }, { status: 400 });
     }
 
+    const editingUser = await prisma.user.findUnique({
+      where: { id: id || "" },
+    });
+
     if (id === requestUser?.id) {
+      if (!editingUser) {
+        return NextResponse.json(
+          { message: "user not found want to edit" },
+          { status: 400 },
+        );
+      }
+
+      await prisma.user.update({
+        where: {
+          id: id,
+        },
+        data: {
+          email: body.email || editingUser.email,
+          firstName: body.firstName || editingUser.firstName,
+          lastName: body.lastName || editingUser.lastName,
+          phoneNumber: body.phoneNumber || editingUser.phoneNumber,
+        },
+      });
     } else {
     }
 
