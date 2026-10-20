@@ -211,13 +211,74 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
           phoneNumber: body.phoneNumber || editingUser.phoneNumber,
         },
       });
-    } else {
-    }
 
-    return NextResponse.json(
-      { message: "user updated successfull!", user: id, reqUser: requestUser },
-      { status: 201 },
-    );
+      const updatedUser = await prisma.user.findUnique({ where: { id: id } });
+
+      if (!updatedUser) {
+        return NextResponse.json(
+          { message: "user not found had edited" },
+          { status: 400 },
+        );
+      }
+
+      return NextResponse.json({
+        message: "User updated successfully!",
+        updatedUser: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          phoneNumber: updatedUser.phoneNumber,
+          role: updatedUser.role,
+          privilages: updatedUser.privilages,
+        },
+      });
+    } else {
+      const havePrivilage = await isPrivilaged(req, "user:edit");
+
+      if (!havePrivilage) {
+        return NextResponse.json(
+          {
+            message: "You're not allow to do this operation!",
+            token: requestUser.role,
+          },
+          { status: 400 },
+        );
+      }
+
+      const user = await prisma.user.findUnique({
+        where: {
+          id: id || "0000",
+        },
+      });
+
+      if (!user) {
+        return NextResponse.json(
+          { message: "user not found want to edit" },
+          { status: 404 },
+        );
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          email: body.email || user.email,
+          firstName: body.firstName || user.firstName,
+          lastName: body.lastName || user.lastName,
+          phoneNumber: body.phoneNumber || user.phoneNumber,
+          status: body.status || user.status,
+          password: (await bcrypt.hash(body.password, 12)) || user.password,
+          privilages: body.privilages || user.privilages,
+          role: body.role || user.role,
+          profileImage: body.profileImage || user.profileImage,
+        },
+      });
+
+      return NextResponse.json(
+        { message: "user updated successfully" },
+        { status: 201 },
+      );
+    }
   } catch (error: unknown) {
     console.log(chalk.red("Server error: ", error));
     return NextResponse.json(
