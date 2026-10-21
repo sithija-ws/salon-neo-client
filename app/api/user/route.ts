@@ -180,48 +180,75 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 export async function PUT(req: NextRequest): Promise<NextResponse> {
   try {
     const id = req.nextUrl.searchParams.get("id");
-    const requestUser = await GetUser(req);
-    const body = await req.json();
 
+    if (!id) {
+      return NextResponse.json(
+        { message: "User ID is required!" },
+        { status: 400 },
+      );
+    }
+
+    const requestUser = await GetUser(req);
     if (!requestUser) {
       console.log(chalk.red("please login!"));
       return NextResponse.json({ message: "please login" }, { status: 400 });
     }
 
-    const editingUser = await prisma.user.findUnique({
-      where: { id: id || "" },
+    const body = await req.json();
+
+    const user = await prisma.user.findUnique({
+      where: { id },
     });
 
-    if (id === requestUser?.id) {
-      if (!editingUser) {
+    if (!user) {
+      return NextResponse.json({ message: "User not found!" }, { status: 400 });
+    }
+
+    //permission check
+
+    const isEditingOwnAccount = requestUser.id === id;
+
+    if (!isEditingOwnAccount) {
+      const havePrivilage = await isPrivilaged(req, "user:edit");
+
+      if (!havePrivilage) {
         return NextResponse.json(
-          { message: "user not found want to edit" },
-          { status: 400 },
+          { message: "You're not allowed to do this work!" },
+          { status: 403 },
         );
       }
+    }
 
-      await prisma.user.update({
-        where: {
-          id: id,
-        },
-        data: {
-          email: body.email || editingUser.email,
-          firstName: body.firstName || editingUser.firstName,
-          lastName: body.lastName || editingUser.lastName,
-          phoneNumber: body.phoneNumber || editingUser.phoneNumber,
-        },
-      });
+    let password = user.password;
+    if (body.password) {
+      password = await bcrypt.hash(body.password, 12);
+    }
 
-      const updatedUser = await prisma.user.findUnique({ where: { id: id } });
+    //update
+    const updatedUser = await prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        email: body.email ?? user.email,
+        firstName: body.firstName ?? user.firstName,
+        lastName: body.lastName ?? user.lastName,
+        phoneNumber: body.phoneNumber ?? user.phoneNumber,
+        password: password,
+        profileImage: body.profileImage ?? user.profileImage,
 
-      if (!updatedUser) {
-        return NextResponse.json(
-          { message: "user not found had edited" },
-          { status: 400 },
-        );
-      }
+        ...(isEditingOwnAccount
+          ? {}
+          : {
+              status: body.status ?? user.status,
+              privilages: body.privilages ?? user.privilages,
+              role: body.role ?? user.role,
+            }),
+      },
+    });
 
-      return NextResponse.json({
+    return NextResponse.json(
+      {
         message: "User updated successfully!",
         updatedUser: {
           id: updatedUser.id,
@@ -231,54 +258,12 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
           phoneNumber: updatedUser.phoneNumber,
           role: updatedUser.role,
           privilages: updatedUser.privilages,
+          profileImage: updatedUser.profileImage,
+          status: updatedUser.status,
         },
-      });
-    } else {
-      const havePrivilage = await isPrivilaged(req, "user:edit");
-
-      if (!havePrivilage) {
-        return NextResponse.json(
-          {
-            message: "You're not allow to do this operation!",
-            token: requestUser.role,
-          },
-          { status: 400 },
-        );
-      }
-
-      const user = await prisma.user.findUnique({
-        where: {
-          id: id || "0000",
-        },
-      });
-
-      if (!user) {
-        return NextResponse.json(
-          { message: "user not found want to edit" },
-          { status: 404 },
-        );
-      }
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          email: body.email || user.email,
-          firstName: body.firstName || user.firstName,
-          lastName: body.lastName || user.lastName,
-          phoneNumber: body.phoneNumber || user.phoneNumber,
-          status: body.status || user.status,
-          password: (await bcrypt.hash(body.password, 12)) || user.password,
-          privilages: body.privilages || user.privilages,
-          role: body.role || user.role,
-          profileImage: body.profileImage || user.profileImage,
-        },
-      });
-
-      return NextResponse.json(
-        { message: "user updated successfully" },
-        { status: 201 },
-      );
-    }
+      },
+      { status: 200 },
+    );
   } catch (error: unknown) {
     console.log(chalk.red("Server error: ", error));
     return NextResponse.json(
