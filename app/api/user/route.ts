@@ -1,10 +1,13 @@
 import prisma from "@/lib/prisma";
 import { UserRegistrationRequestSchema } from "@/types/dto/UserRegistrationRequest";
+import { UserSelfUpdateSchema } from "@/types/dto/UserSelfUpdateRequest";
+import { UserUpdateByAdminSchema } from "@/types/dto/UserUpdateByAdmin";
 import { RequestUserType } from "@/types/requestUser";
 import { GetUser, isPrivilaged } from "@/utils/Authentication";
 import bcrypt from "bcryptjs";
 import chalk from "chalk";
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 export async function GET(req: NextRequest) {
   try {
@@ -162,21 +165,22 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    //Auth
     const requestUser = await GetUser(req);
     if (!requestUser) {
-      console.log(chalk.red("please login!"));
       return NextResponse.json({ message: "please login" }, { status: 400 });
     }
-
-    const body = await req.json();
 
     const user = await prisma.user.findUnique({
       where: { id },
     });
 
     if (!user) {
-      return NextResponse.json({ message: "User not found!" }, { status: 400 });
+      return NextResponse.json({ message: "User not found!" }, { status: 404 });
     }
+
+    const body = await req.json();
+    let updatedUser;
 
     //permission check
 
@@ -191,35 +195,34 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
           { status: 403 },
         );
       }
+
+      const parseBody = UserUpdateByAdminSchema.parse(body);
+      updatedUser = await prisma.user.update({
+        where: { id },
+        data: {
+          email: parseBody.email ?? user.email,
+          firstName: parseBody.firstName ?? user.firstName,
+          lastName: parseBody.lastName ?? user.lastName,
+          phoneNumber: parseBody.phoneNumber ?? user.phoneNumber,
+          profileImage: parseBody.profileImage ?? user.profileImage,
+          status: parseBody.status ?? user.status,
+          privilages: parseBody.privilages ?? user.privilages,
+          role: parseBody.role ?? user.role,
+        },
+      });
+    } else {
+      const parseBody = UserSelfUpdateSchema.parse(body);
+      updatedUser = await prisma.user.update({
+        where: { id },
+        data: {
+          email: parseBody.email ?? user.email,
+          firstName: parseBody.firstName ?? user.firstName,
+          lastName: parseBody.lastName ?? user.lastName,
+          phoneNumber: parseBody.phoneNumber ?? user.phoneNumber,
+          profileImage: parseBody.profileImage ?? user.profileImage,
+        },
+      });
     }
-
-    let password = user.password;
-    if (body.password) {
-      password = await bcrypt.hash(body.password, 12);
-    }
-
-    //update
-    const updatedUser = await prisma.user.update({
-      where: {
-        id,
-      },
-      data: {
-        email: body.email ?? user.email,
-        firstName: body.firstName ?? user.firstName,
-        lastName: body.lastName ?? user.lastName,
-        phoneNumber: body.phoneNumber ?? user.phoneNumber,
-        password: password,
-        profileImage: body.profileImage ?? user.profileImage,
-
-        ...(isEditingOwnAccount
-          ? {}
-          : {
-              status: body.status ?? user.status,
-              privilages: body.privilages ?? user.privilages,
-              role: body.role ?? user.role,
-            }),
-      },
-    });
 
     return NextResponse.json(
       {
@@ -239,10 +242,21 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       { status: 200 },
     );
   } catch (error: unknown) {
-    console.log(chalk.red("Server error: ", error));
-    return NextResponse.json(
-      { message: "Server error while processing!" },
-      { status: 500 },
-    );
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          message: error.issues[0]?.message ?? "Invalid Input!",
+        },
+        {
+          status: 400,
+        },
+      );
+    } else {
+      console.log(chalk.red("Server error: ", error));
+      return NextResponse.json(
+        { message: "Server error while processing!" },
+        { status: 500 },
+      );
+    }
   }
 }
