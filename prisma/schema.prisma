@@ -12,6 +12,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum productStatus {
+  ACTIVE
+  INACTIVE
+  DELETED
+}
+
 model user {
   id           String    @id @default(uuid())
   firstName    String
@@ -25,4 +31,32 @@ model user {
   privilages   String[]  @default([])
   role         String    @default("CUSTOMER")
   profileImage String    @default("C:/Users/E-TEC/Desktop/PROJECTS/salon-neo/app/favicon.ico")
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  sku         String        @unique
+  brand       String?
+  name        String?
+  altNames    String[]      @default([])
+  model       String
+  description String
+  stock       Int           @default(0)
+  status      productStatus @default(ACTIVE)
+  price       Float
+  compareAt   Float?
+  media Media[]
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Media {
+  id   String    @id @default(uuid())
+  url  String
+  type MediaType
+  productId String
+  product Product @relation(fields: [productId],references: [id])
 }
