@@ -187,7 +187,8 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     const isEditingOwnAccount = requestUser.id === id;
 
     if (!isEditingOwnAccount) {
-      const havePrivilage = await isPrivilaged(req, "user:edit");
+      const havePrivilage =
+        (await isPrivilaged(req, "user:edit")) || requestUser.role === "ADMIN";
 
       if (!havePrivilage) {
         return NextResponse.json(
