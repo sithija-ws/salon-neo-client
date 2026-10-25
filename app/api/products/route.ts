@@ -4,26 +4,82 @@ import z, { ZodError } from "zod";
 import { ProductCreateRequestSchema } from "@/types/dto/ProductCreateRequest";
 import { parse } from "path";
 import prisma from "@/lib/prisma";
+import GetPaginationInfo from "@/utils/GetPaginationInfo";
 
 export async function GET(req: NextRequest) {
   try {
     const user = await GetUser(req);
     if (!user) {
-      return NextResponse.json({
-        success: false,
-        msg: "Unauthorized!",
-      });
+      return NextResponse.json(
+        { message: "Please login in first" },
+        { status: 401 },
+      );
+    }
+    const isPrivilagedUser =
+      (await isPrivilaged(req, "products:retrieve")) || user.role == "ADMIN";
+    if (!isPrivilagedUser) {
+      return NextResponse.json(
+        { message: "You're not authorized to view products!" },
+        { status: 403 },
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      user,
+    const { pageNumber, pageSize } = GetPaginationInfo(req);
+    const productCount = await prisma.product.count();
+    const pageCount = Math.ceil(productCount / pageSize);
+
+    if (pageNumber < 1 || pageCount < pageNumber) {
+      return NextResponse.json(
+        { message: "Invalid page Number!" },
+        { status: 400 },
+      );
+    }
+
+    if (pageSize < 1 || pageSize > 100) {
+      return NextResponse.json(
+        { message: "Invalid page Size!" },
+        { status: 400 },
+      );
+    }
+
+    const products = await prisma.product.findMany({
+      skip: (pageNumber - 1) * pageSize,
+
+      orderBy: {
+        id: "desc",
+      },
+      take: pageSize,
+      select: {
+        id: true,
+        sku: true,
+        brand: true,
+        name: true,
+        altNames: true,
+        model: true,
+        description: true,
+        stock: true,
+        status: true,
+        price: true,
+        compareAt: true,
+        media: true,
+      },
     });
-  } catch (error: any) {
+
     return NextResponse.json({
-      success: false,
-      msg: "Server Error While Processing!",
+      message: "product retrievd successfully",
+      totalProducts: productCount,
+      pagination: {
+        pageCount: pageCount,
+        pageNumber: pageNumber,
+        pageSize: pageSize,
+      },
+      products,
     });
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Internal server error !" },
+      { status: 500 },
+    );
   }
 }
 
@@ -114,10 +170,9 @@ export async function POST(req: NextRequest) {
       );
     } else {
       return NextResponse.json(
-      { message: "Server error while creating product!" },
-      { status: 500 },
-    );
+        { message: "Server error while creating product!" },
+        { status: 500 },
+      );
     }
-    
   }
 }
