@@ -4,6 +4,7 @@ import { UserSelfUpdateSchema } from "@/types/dto/UserSelfUpdateRequest";
 import { UserUpdateByAdminSchema } from "@/types/dto/UserUpdateByAdmin";
 import { RequestUserType } from "@/types/requestUser";
 import { GetUser, isPrivilaged } from "@/utils/Authentication";
+import GetPaginationInfo from "@/utils/GetPaginationInfo";
 import bcrypt from "bcryptjs";
 import chalk from "chalk";
 import { NextRequest, NextResponse } from "next/server";
@@ -24,12 +25,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized!" }, { status: 401 });
     }
 
-    const pageNumberInString =
-      req.nextUrl.searchParams.get("pageNumber") || "1";
-    const pageSizeInString = req.nextUrl.searchParams.get("pageSize") || "10";
-
-    const pageNumber = parseInt(pageNumberInString);
-    const pageSize = parseInt(pageSizeInString);
+    const { pageNumber, pageSize } = GetPaginationInfo(req);
 
     const userCount = await prisma.user.count();
     const pageCount = Math.ceil(userCount / pageSize);
